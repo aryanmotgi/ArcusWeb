@@ -36,7 +36,6 @@ async function sendWelcomeEmail(email: string): Promise<void> {
             <td style="padding: 0 30px 40px 30px;">
               <h2 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 400; color: #F5F5F0;">You're on the list.</h2>
               <p style="margin: 0 0 15px 0; font-size: 16px; line-height: 1.6; color: #F5F5F0CC;">Thank you for joining the Arcus waitlist. We'll notify you when the collection drops.</p>
-              <p style="margin: 0 0 15px 0; font-size: 16px; line-height: 1.6; color: #F5F5F0CC;">Built for the disciplined. Designed for those who lead quietly.</p>
             </td>
           </tr>
           <tr>
@@ -61,8 +60,6 @@ ARCUS
 You're on the list.
 
 Thank you for joining the Arcus waitlist. We'll notify you when the collection drops.
-
-Built for the disciplined. Designed for those who lead quietly.
 
 ---
 Follow us:
