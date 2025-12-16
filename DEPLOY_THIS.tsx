@@ -60,7 +60,6 @@ ARCUS
 You're on the list.
 
 Thank you for joining the Arcus waitlist. We'll notify you when the collection drops.
-
 ---
 Follow us:
 Instagram: https://www.instagram.com/arcuswear/
