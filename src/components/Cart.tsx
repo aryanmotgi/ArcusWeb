@@ -3,7 +3,7 @@ import { X, Plus, Minus, ShoppingBag, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
-import { createCheckout } from '../utils/shopify/checkout';
+// import { createCheckout } from '../utils/shopify/checkout';
 
 interface CartProps {
   isOpen: boolean;
@@ -21,27 +21,29 @@ export default function Cart({ isOpen, onClose }: CartProps) {
       return;
     }
 
-    try {
-      setIsCreatingCheckout(true);
-      setCheckoutError(null);
+    // try {
+    //   setIsCreatingCheckout(true);
+    //   setCheckoutError(null);
 
-      // Set return URL to thank you page after checkout completion
-      const returnUrl = `${window.location.origin}/thank-you`;
-      
-      // Create checkout and get checkout URL
-      const checkoutUrl = await createCheckout(items, returnUrl);
+    //   // Set return URL to thank you page after checkout completion
+    //   const returnUrl = `${window.location.origin}/thank-you`;
+    //   
+    //   // Create checkout and get checkout URL
+    //   const checkoutUrl = await createCheckout(items, returnUrl);
 
-      // Redirect to Shopify checkout
-      window.location.href = checkoutUrl;
-    } catch (error) {
-      console.error('Error creating checkout:', error);
-      setCheckoutError(
-        error instanceof Error 
-          ? error.message 
-          : 'Failed to create checkout. Please try again.'
-      );
-      setIsCreatingCheckout(false);
-    }
+    //   // Redirect to Shopify checkout
+    //   window.location.href = checkoutUrl;
+    // } catch (error) {
+    //   console.error('Error creating checkout:', error);
+    //   setCheckoutError(
+    //     error instanceof Error 
+    //       ? error.message 
+    //       : 'Failed to create checkout. Please try again.'
+    //   );
+    //   setIsCreatingCheckout(false);
+    // }
+    setCheckoutError('Checkout is temporarily unavailable');
+    setIsCreatingCheckout(false);
   };
 
   const subtotal = getCartTotal();

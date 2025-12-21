@@ -5,10 +5,11 @@ import { ChevronLeft, ShoppingBag } from 'lucide-react';
 import logo from '../assets/arcus-wordmark.png';
 import Menu from './Menu';
 import Cart from './Cart';
-import { executeQuery } from '../utils/shopify/client';
-import { GET_PRODUCTS } from '../utils/shopify/queries';
-import { ShopifyProductsResponse } from '../types/shopify';
+// import { executeQuery } from '../utils/shopify/client';
+// import { GET_PRODUCTS } from '../utils/shopify/queries';
+// import { ShopifyProductsResponse } from '../types/shopify';
 import { useCart } from '../contexts/CartContext';
+import { products as mockProducts } from '../data/products';
 
 interface Product {
   id: string; // Changed to string to match Shopify IDs
@@ -37,45 +38,11 @@ export default function Products() {
   // Detect if device is touch-enabled (mobile)
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-  // Fetch products from Shopify
+  // Load products from local data
   useEffect(() => {
-    async function fetchProducts() {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const data = await executeQuery<ShopifyProductsResponse>(GET_PRODUCTS, { first: 10 });
-        
-        // Map Shopify products to our Product interface
-        const mappedProducts: Product[] = data.products.edges.map(({ node }) => {
-          const images = node.images.edges.map(edge => edge.node);
-          const frontImage = images[0]?.url || '';
-          const backImage = images[1]?.url || images[0]?.url || ''; // Use first image as back if no second image
-          
-          // Get price from first available variant or price range
-          const price = parseFloat(node.variants.edges[0]?.node.price.amount || node.priceRange.minVariantPrice.amount);
-          
-          return {
-            id: node.id,
-            name: node.title,
-            price: price,
-            image: frontImage,
-            backImage: backImage,
-            description: node.description || '',
-            handle: node.handle
-          };
-        });
-        
-        setProducts(mappedProducts);
-      } catch (err) {
-        console.error('Error fetching products:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load products');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchProducts();
+    setLoading(true);
+    setProducts(mockProducts);
+    setLoading(false);
   }, []);
 
   // Auto-rotate images on mobile every 3 seconds

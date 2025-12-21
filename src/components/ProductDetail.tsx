@@ -5,10 +5,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import logo from '../assets/arcus-wordmark.png';
 import Menu from './Menu';
 import Cart from './Cart';
-import { executeQuery } from '../utils/shopify/client';
-import { GET_PRODUCT_BY_HANDLE } from '../utils/shopify/queries';
+// import { executeQuery } from '../utils/shopify/client';
+// import { GET_PRODUCT_BY_HANDLE } from '../utils/shopify/queries';
 import { ShopifyProductResponse, ShopifyProduct } from '../types/shopify';
 import { useCart } from '../contexts/CartContext';
+import { products } from '../data/products';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>(); // This is now the product handle
@@ -30,55 +31,94 @@ export default function ProductDetail() {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
-  // Fetch product from Shopify
+  // Load product from local data
   useEffect(() => {
-    async function fetchProduct() {
-      if (!id) {
-        setError('Product handle not provided');
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const data = await executeQuery<ShopifyProductResponse>(GET_PRODUCT_BY_HANDLE, { handle: id });
-        
-        if (!data.product) {
-          setError('Product not found');
-          setLoading(false);
-          return;
-        }
-
-        setProduct(data.product);
-        
-        // Set default selected variant (first available variant)
-        const firstAvailableVariant = data.product.variants.edges.find(
-          edge => edge.node.availableForSale
-        );
-        if (firstAvailableVariant) {
-          setSelectedVariantId(firstAvailableVariant.node.id);
-          // Extract size from variant title (e.g., "Small", "Medium", "Large")
-          const sizeOption = firstAvailableVariant.node.selectedOptions.find(
-            opt => opt.name.toLowerCase() === 'size'
-          );
-          if (sizeOption) {
-            setSelectedSize(sizeOption.value);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching product:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load product');
-      } finally {
-        setLoading(false);
-      }
+    if (!id) {
+      setError('Product handle not provided');
+      setLoading(false);
+      return;
     }
 
-    fetchProduct();
+    setLoading(true);
+    setError(null);
+
+    // Find product by handle
+    const foundProduct = products.find(p => p.handle === id);
+
+    if (!foundProduct) {
+      setError('Product not found');
+      setLoading(false);
+      return;
+    }
+
+    // Convert local product to Shopify format for compatibility
+    // Generate variants for multiple sizes
+    const sizes = ['S', 'M', 'L', 'XL'];
+    const variants = sizes.map(size => ({
+      node: {
+        id: `${foundProduct.id}-${size}`,
+        title: size,
+        price: {
+          amount: foundProduct.price.toString(),
+          currencyCode: 'USD'
+        },
+        availableForSale: true,
+        quantityAvailable: 10,
+        selectedOptions: [
+          {
+            name: 'Size',
+            value: size
+          }
+        ]
+      }
+    }));
+
+    const shopifyProduct: ShopifyProduct = {
+      id: foundProduct.id,
+      title: foundProduct.name,
+      handle: foundProduct.handle,
+      description: foundProduct.description,
+      priceRange: {
+        minVariantPrice: {
+          amount: foundProduct.price.toString(),
+          currencyCode: 'USD'
+        }
+      },
+      images: {
+        edges: [
+          {
+            node: {
+              id: '1',
+              url: foundProduct.image,
+              altText: foundProduct.name,
+              width: 800,
+              height: 1000
+            }
+          },
+          {
+            node: {
+              id: '2',
+              url: foundProduct.backImage,
+              altText: `${foundProduct.name} - Back`,
+              width: 800,
+              height: 1000
+            }
+          }
+        ]
+      },
+      variants: {
+        edges: variants
+      }
+    };
+
+    setProduct(shopifyProduct);
+    // Set default to Medium
+    setSelectedVariantId(`${foundProduct.id}-M`);
+    setSelectedSize('M');
+    setLoading(false);
   }, [id]);
 
-  // Get product views from Shopify images - MUST be computed before useEffect that uses it
+  // Get product views from product images
   const productViews = useMemo(() => {
     return product ? product.images.edges.map((edge, index) => ({
       id: index + 1,
