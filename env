@@ -1,0 +1,18 @@
+# Supabase Configuration
+SUPABASE_URL=https://rfykfxzdormkgelxzkyc.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmeWtmeHpkb3Jta2dlbHh6a3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3OTc0MjgsImV4cCI6MjA4MDM3MzQyOH0.jWM4589UPyplk3Hvzpo1RKyoqtEBaieBWwEizOz3-0Y
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmeWtmeHpkb3Jta2dlbHh6a3ljIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDc5NzQyOCwiZXhwIjoyMDgwMzczNDI4fQ.rcXEoYTP-xdjeqrYRACznvNu1nuGW8AekQF-nJBXOCI
+
+# Resend Configuration (for email)
+# Sign up at https://resend.com and add your API key below
+RESEND_API_KEY=re_VWBedvCb_DgmeEfWfZ5gBna71EegaWpA6
+
+# Twilio Configuration (for SMS)
+# Sign up at https://www.twilio.com and add your credentials below
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
+
+# Representers Access Code
+# Change this to your desired access code for the representers page
+VITE_REPRESENTER_ACCESS_CODE=arcus2025
