@@ -7,7 +7,6 @@ import logo from '../assets/arcus-wordmark.png';
 import Menu from './Menu';
 import Cart from './Cart';
 import Logo3DAutoRotate from './Logo3DAutoRotate';
-import BundlePopup from './BundlePopup';
 import ProductSkeleton from './ProductSkeleton';
 // import { executeQuery } from '../utils/shopify/client';
 // import { GET_PRODUCTS } from '../utils/shopify/queries';
@@ -357,9 +356,6 @@ export default function Products() {
           )}
         </div>
       </main>
-
-      {/* Bundle Deal Popup */}
-      <BundlePopup />
     </motion.div>
   );
 }

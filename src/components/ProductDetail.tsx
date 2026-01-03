@@ -7,7 +7,6 @@ import logo from '../assets/arcus-wordmark.png';
 import Menu from './Menu';
 import Cart from './Cart';
 import Logo3DAutoRotate from './Logo3DAutoRotate';
-import BundlePopup from './BundlePopup';
 import SizeHelper from './SizeHelper';
 import ScrollProgress from './ScrollProgress';
 // import { executeQuery } from '../utils/shopify/client';
@@ -1036,9 +1035,6 @@ export default function ProductDetail() {
           </>
         )}
       </AnimatePresence>
-
-      {/* Bundle Deal Popup */}
-      <BundlePopup />
 
       {/* Size Helper */}
       <SizeHelper
