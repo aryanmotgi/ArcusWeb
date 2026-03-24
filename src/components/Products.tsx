@@ -372,8 +372,11 @@ export default function Products() {
                       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (isDragging) return;
                         if (!isActive) {
                           setActiveIndex(index);
+                        } else {
+                          handleProductClick(product.handle);
                         }
                       }}
                     >
@@ -388,6 +391,7 @@ export default function Products() {
                           boxShadow: isActive 
                             ? '0 0 40px rgba(255, 255, 255, 0.2), 0 0 80px rgba(200, 200, 200, 0.15), 0 30px 60px rgba(0,0,0,0.5), 0 15px 30px rgba(0,0,0,0.4)' 
                             : '0 20px 40px rgba(0,0,0,0.4), 0 10px 20px rgba(0,0,0,0.3)',
+                          touchAction: isActive ? 'manipulation' : 'pan-x',
                         }}
                       >
                         {/* Product Image */}
@@ -475,6 +479,9 @@ export default function Products() {
                                 boxShadow: product.isPreOrder
                                   ? '0 4px 20px rgba(74, 222, 128, 0.4), 0 0 40px rgba(74, 222, 128, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
                                   : '0 2px 10px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+                                touchAction: 'manipulation',
+                                position: 'relative',
+                                zIndex: 100,
                               }}
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
@@ -486,9 +493,14 @@ export default function Products() {
                                   : '0 0 25px rgba(200, 200, 200, 0.4), 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
                               }}
                               whileTap={{ scale: 0.95 }}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onTouchStart={(e) => e.stopPropagation()}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleProductClick(product.handle);
+                                e.preventDefault();
+                                if (!isDragging) {
+                                  handleProductClick(product.handle);
+                                }
                               }}
                             >
                               {product.isPreOrder ? 'Pre-order Now' : 'Shop Now'}
