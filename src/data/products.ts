@@ -9,10 +9,10 @@ import allPathsTeeBackLarge from '../assets/3357396B-D316-4F31-B0AF-A7F060702ADB
 import setFront from '../assets/SetFront.png';
 import setBack from '../assets/SetBack.png';
 import arcusPantsTxt from '../assets/ArcusPantsTxt.png';
-import hoodieFrontNew from '../assets/HoodieFront.png';
+import hoodieFrontNew from '../assets/hoodieFront.png';
 import pantsFront from '../assets/PantsFront.png';
 import pantsBack from '../assets/PantsBack.png';
-import hoodieBackNew from '../assets/Hoodieback.png';
+import hoodieBackNew from '../assets/hoodieBack.png';
 
 export interface BundleItem {
   productId: string;
