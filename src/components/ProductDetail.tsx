@@ -76,7 +76,7 @@ export default function ProductDetail() {
   // Calculate image dimensions based on screen width
   const imageDimensions = windowWidth >= 768
     ? { width: '500px', height: '667px' }
-    : { width: '280px', height: '373px' };
+    : { width: '240px', height: '320px' };
 
   // Scroll to top and reset view when product changes
   useEffect(() => {
@@ -573,7 +573,7 @@ export default function ProductDetail() {
         <ScrollProgress />
 
       {/* Product Detail */}
-      <main className="px-6 md:px-16 min-h-screen flex items-center justify-center py-24 md:py-0 relative z-10">
+      <main className="px-4 md:px-16 min-h-screen flex items-center justify-center pt-32 pb-12 md:py-0 relative z-10">
         <div className="max-w-6xl mx-auto w-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 md:items-center justify-items-center">
             {/* Left Side - Images */}
@@ -586,7 +586,7 @@ export default function ProductDetail() {
                     <motion.button
                       key={view.id}
                       onClick={() => setCurrentView(index)}
-                      className="w-16 md:w-24 aspect-[3/4] overflow-hidden rounded-lg md:rounded-xl relative"
+                      className="w-12 md:w-24 aspect-[3/4] overflow-hidden rounded-lg md:rounded-xl relative"
                       style={{
                         backgroundColor: '#1A1A1A',
                         background: currentView === index
@@ -633,7 +633,7 @@ export default function ProductDetail() {
                   {productViews.length > 2 && (
                     <motion.button
                       onClick={() => setCurrentView(2)}
-                      className="w-16 md:w-24 aspect-[3/4] rounded-lg md:rounded-xl flex flex-col items-center justify-center relative overflow-hidden"
+                      className="w-12 md:w-24 aspect-[3/4] rounded-lg md:rounded-xl flex flex-col items-center justify-center relative overflow-hidden"
                       style={{
                         backgroundColor: '#1A1A1A',
                         background: currentView >= 2
@@ -788,10 +788,10 @@ export default function ProductDetail() {
             </div>
 
             {/* Right Side - Product Info */}
-            <div className="space-y-6 flex flex-col justify-center max-w-md mt-12 md:mt-0">
+            <div className="space-y-4 md:space-y-6 flex flex-col justify-center max-w-md mt-6 md:mt-0">
               {/* Title and Price */}
               <div className="flex flex-col gap-3">
-                <h1 className="tracking-wider uppercase text-3xl md:text-4xl">{product.title}</h1>
+                <h1 className="tracking-wider uppercase text-2xl md:text-4xl">{product.title}</h1>
                 <div className="flex items-center gap-3">
                   {localProduct?.originalPrice && (
                     <span 

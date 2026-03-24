@@ -491,7 +491,7 @@ export default function Products() {
                                 handleProductClick(product.handle);
                               }}
                             >
-                              {product.isPreOrder ? '🔥 Pre-order Now' : 'Shop Now'}
+                              {product.isPreOrder ? 'Pre-order Now' : 'Shop Now'}
                             </motion.button>
                           )}
                         </div>
