@@ -10,9 +10,9 @@ interface SizeHelperProps {
 }
 
 const heightRanges = [
-  { label: "Under 5'5\"", sublabel: "Under 165cm", size: 'S' },
-  { label: "5'5\" - 5'9\"", sublabel: "165-175cm", size: 'M' },
-  { label: "5'10\"+", sublabel: "175cm+", size: 'L' },
+  { label: "Under 5'6\"", sublabel: "Under 168cm", size: 'S' },
+  { label: "5'6\" - 5'11\"", sublabel: "168-180cm", size: 'M' },
+  { label: "6'0\"+", sublabel: "183cm+", size: 'L' },
 ];
 
 export default function SizeHelper({ isOpen, onClose, onSelectSize }: SizeHelperProps) {

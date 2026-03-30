@@ -9,11 +9,9 @@ import Cart from './Cart';
 import Logo3DTransform from './Logo3DTransform';
 import SizeHelper from './SizeHelper';
 import ScrollProgress from './ScrollProgress';
-// import { executeQuery } from '../utils/shopify/client';
-// import { GET_PRODUCT_BY_HANDLE } from '../utils/shopify/queries';
-import { ShopifyProductResponse, ShopifyProduct } from '../types/shopify';
+import { ShopifyProduct } from '../types/shopify';
 import { useCart } from '../contexts/CartContext';
-import { products } from '../data/products';
+import { products, type BundleItem } from '../data/products';
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>(); // This is now the product handle
@@ -25,6 +23,8 @@ export default function ProductDetail() {
   // Bundle size selections
   const [selectedHoodieSize, setSelectedHoodieSize] = useState('');
   const [selectedPantsSize, setSelectedPantsSize] = useState('');
+  // Purchase mode for bundle products: 'set', 'hoodie', or 'sweatpants'
+  const [purchaseMode, setPurchaseMode] = useState<'set' | 'hoodie' | 'sweatpants'>('set');
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [product, setProduct] = useState<ShopifyProduct | null>(null);
@@ -74,9 +74,10 @@ export default function ProductDetail() {
   }, []);
 
   // Calculate image dimensions based on screen width
+  // Mobile: scale to fit screen. Desktop: original fixed sizes.
   const imageDimensions = windowWidth >= 768
     ? { width: '500px', height: '667px' }
-    : { width: '280px', height: '373px' };
+    : { width: `${Math.min(windowWidth - 32, 340)}px`, height: `${Math.min(windowWidth - 32, 340) * 1.33}px` };
 
   // Scroll to top and reset view when product changes
   useEffect(() => {
@@ -210,44 +211,75 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     // Handle bundle products (like Arcus Set)
     if (localProduct?.isBundle && localProduct.bundleItems) {
-      if (!selectedHoodieSize || !selectedPantsSize) return;
-      
-      const hoodieVariantId = localProduct.bundleItems.hoodie?.variants[selectedHoodieSize as 'S' | 'M' | 'L'];
-      const pantsVariantId = localProduct.bundleItems.sweatpants?.variants[selectedPantsSize as 'S' | 'M' | 'L'];
-      
-      if (!hoodieVariantId || !pantsVariantId) return;
+      if (purchaseMode === 'set') {
+        // Full set mode - need both sizes
+        if (!selectedHoodieSize || !selectedPantsSize) return;
 
-      // Calculate price per item (bundle price split between items)
-      const pricePerItem = localProduct.price / 2;
-      const originalPricePerItem = localProduct.originalPrice ? localProduct.originalPrice / 2 : undefined;
+        const hoodieVariantId = localProduct.bundleItems.hoodie?.variants[selectedHoodieSize as keyof BundleItem['variants']];
+        const pantsVariantId = localProduct.bundleItems.sweatpants?.variants[selectedPantsSize as keyof BundleItem['variants']];
 
-      // Add hoodie to cart
-      addToCart({
-        variantId: hoodieVariantId,
-        productId: localProduct.bundleItems.hoodie?.productId || '',
-        productHandle: 'arcus-set-hoodie',
-        productTitle: `${localProduct.name} - Hoodie`,
-        variantTitle: selectedHoodieSize,
-        size: selectedHoodieSize,
-        price: pricePerItem,
-        originalPrice: originalPricePerItem,
-        image: productViews[0]?.image || '',
-        isPreOrder: localProduct.isPreOrder
-      });
+        if (!hoodieVariantId || !pantsVariantId) return;
 
-      // Add sweatpants to cart
-      addToCart({
-        variantId: pantsVariantId,
-        productId: localProduct.bundleItems.sweatpants?.productId || '',
-        productHandle: 'arcus-set-sweatpants',
-        productTitle: `${localProduct.name} - Sweatpants`,
-        variantTitle: selectedPantsSize,
-        size: selectedPantsSize,
-        price: pricePerItem,
-        originalPrice: originalPricePerItem,
-        image: productViews[0]?.image || '',
-        isPreOrder: localProduct.isPreOrder
-      });
+        // Calculate price per item (bundle price split proportionally: hoodie $40, pants $30 out of $65)
+        const hoodiePrice = (localProduct.bundleItems.hoodie?.price || 45) / ((localProduct.bundleItems.hoodie?.price || 45) + (localProduct.bundleItems.sweatpants?.price || 35)) * localProduct.price;
+        const pantsPrice = localProduct.price - hoodiePrice;
+
+        // Add hoodie to cart
+        addToCart({
+          variantId: hoodieVariantId,
+          productId: localProduct.bundleItems.hoodie?.productId || '',
+          productHandle: 'arcus-set-hoodie',
+          productTitle: `${localProduct.name} - Hoodie`,
+          variantTitle: selectedHoodieSize,
+          size: selectedHoodieSize,
+          price: Math.round(hoodiePrice * 100) / 100,
+          image: productViews[0]?.image || '',
+        });
+
+        // Add sweatpants to cart
+        addToCart({
+          variantId: pantsVariantId,
+          productId: localProduct.bundleItems.sweatpants?.productId || '',
+          productHandle: 'arcus-set-sweatpants',
+          productTitle: `${localProduct.name} - Sweatpants`,
+          variantTitle: selectedPantsSize,
+          size: selectedPantsSize,
+          price: Math.round(pantsPrice * 100) / 100,
+          image: productViews[0]?.image || '',
+        });
+      } else if (purchaseMode === 'hoodie') {
+        // Hoodie only
+        if (!selectedHoodieSize) return;
+        const hoodieVariantId = localProduct.bundleItems.hoodie?.variants[selectedHoodieSize as keyof BundleItem['variants']];
+        if (!hoodieVariantId) return;
+
+        addToCart({
+          variantId: hoodieVariantId,
+          productId: localProduct.bundleItems.hoodie?.productId || '',
+          productHandle: 'arcus-hoodie',
+          productTitle: 'Arcus Hoodie',
+          variantTitle: selectedHoodieSize,
+          size: selectedHoodieSize,
+          price: localProduct.bundleItems.hoodie?.price || 45,
+          image: productViews[0]?.image || '',
+        });
+      } else if (purchaseMode === 'sweatpants') {
+        // Sweatpants only
+        if (!selectedPantsSize) return;
+        const pantsVariantId = localProduct.bundleItems.sweatpants?.variants[selectedPantsSize as keyof BundleItem['variants']];
+        if (!pantsVariantId) return;
+
+        addToCart({
+          variantId: pantsVariantId,
+          productId: localProduct.bundleItems.sweatpants?.productId || '',
+          productHandle: 'arcus-sweatpants',
+          productTitle: 'Arcus Sweatpants',
+          variantTitle: selectedPantsSize,
+          size: selectedPantsSize,
+          price: localProduct.bundleItems.sweatpants?.price || 35,
+          image: productViews[0]?.image || '',
+        });
+      }
 
       // Show success animation
       setAddToCartSuccess(true);
@@ -324,11 +356,18 @@ export default function ProductDetail() {
   )?.node;
 
   // Get price from selected variant or product price range
-  const price = selectedVariant
-    ? parseFloat(selectedVariant.price.amount)
-    : product
-      ? parseFloat(product.priceRange.minVariantPrice.amount)
-      : 0;
+  // For bundle products, adjust price based on purchase mode
+  const price = localProduct?.isBundle
+    ? purchaseMode === 'hoodie'
+      ? (localProduct.bundleItems?.hoodie?.price || 40)
+      : purchaseMode === 'sweatpants'
+        ? (localProduct.bundleItems?.sweatpants?.price || 30)
+        : localProduct.price
+    : selectedVariant
+      ? parseFloat(selectedVariant.price.amount)
+      : product
+        ? parseFloat(product.priceRange.minVariantPrice.amount)
+        : 0;
 
   if (loading) {
     return (
@@ -573,14 +612,14 @@ export default function ProductDetail() {
         <ScrollProgress />
 
       {/* Product Detail */}
-      <main className="px-6 md:px-16 min-h-screen flex items-center justify-center py-24 md:py-0 relative z-10">
+      <main className="px-4 lg:px-16 min-h-screen flex items-center justify-center pt-28 pb-8 lg:pt-32 lg:pb-8 relative z-10">
         <div className="max-w-6xl mx-auto w-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 md:items-center justify-items-center">
             {/* Left Side - Images */}
             <div className="flex gap-3 items-center justify-center">
-              {/* Thumbnail Images - Vertical Column on Left */}
+              {/* Thumbnail Images - Only visible when 2-column layout is active (lg+) */}
               {productViews.length > 0 && (
-                <div className="flex flex-col gap-4 md:gap-6">
+                <div className="hidden lg:flex flex-col gap-4 md:gap-6">
                   {/* Show first 2 thumbnails */}
                   {productViews.slice(0, 2).map((view, index) => (
                     <motion.button
@@ -793,52 +832,71 @@ export default function ProductDetail() {
               <div className="flex flex-col gap-3">
                 <h1 className="tracking-wider uppercase text-3xl md:text-4xl">{product.title}</h1>
                 <div className="flex items-center gap-3">
-                  {localProduct?.originalPrice && (
-                    <span 
-                      className="text-xl font-semibold text-off-white/40"
-                      style={{
-                        textDecoration: 'line-through',
-                        textDecorationColor: 'rgba(239, 68, 68, 0.8)',
-                        textDecorationThickness: '2px'
-                      }}
-                    >
-                      ${localProduct.originalPrice.toFixed(2)}
-                    </span>
-                  )}
-                  <p 
+                  <p
                     className="text-xl font-semibold"
                     style={{
-                      background: localProduct?.originalPrice 
-                        ? 'linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)'
-                        : 'linear-gradient(135deg, #E8E8E8 0%, #B8B8B8 25%, #F5F5F5 50%, #A0A0A0 75%, #D0D0D0 100%)',
+                      background: 'linear-gradient(135deg, #E8E8E8 0%, #B8B8B8 25%, #F5F5F5 50%, #A0A0A0 75%, #D0D0D0 100%)',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
                       backgroundClip: 'text',
-                      textShadow: localProduct?.originalPrice 
-                        ? '0 0 20px rgba(74, 222, 128, 0.4)'
-                        : '0 0 20px rgba(200, 200, 200, 0.3)',
+                      textShadow: '0 0 20px rgba(200, 200, 200, 0.3)',
                     }}
                   >${price.toFixed(2)}</p>
-                  {localProduct?.isPreOrder && (
-                    <span 
-                      className="px-2 py-1 text-xs font-bold uppercase tracking-wider rounded-md"
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(74, 222, 128, 0.2) 0%, rgba(34, 197, 94, 0.2) 100%)',
-                        border: '1px solid rgba(74, 222, 128, 0.4)',
-                        color: '#4ade80',
-                        textShadow: '0 0 10px rgba(74, 222, 128, 0.5)'
-                      }}
-                    >
-                      Pre-Order
-                    </span>
-                  )}
                 </div>
               </div>
+
+              {/* Purchase Mode Selector for Bundle */}
+              {localProduct?.isBundle && localProduct.bundleItems && (
+                <div className="flex flex-col gap-3">
+                  <label className="text-off-white/70 uppercase tracking-widest text-sm font-semibold">Purchase Option</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { mode: 'set' as const, label: 'Full Set', price: localProduct.price },
+                      { mode: 'hoodie' as const, label: 'Hoodie Only', price: localProduct.bundleItems.hoodie?.price || 45 },
+                      { mode: 'sweatpants' as const, label: 'Sweatpants Only', price: localProduct.bundleItems.sweatpants?.price || 35 },
+                    ].map(({ mode, label, price: modePrice }) => (
+                      <motion.button
+                        key={mode}
+                        onClick={() => setPurchaseMode(mode)}
+                        className={`px-4 py-2.5 border-2 rounded-lg font-semibold cursor-pointer text-sm ${purchaseMode === mode
+                          ? 'border-off-white bg-gradient-to-br from-off-white/20 to-off-white/5 shadow-lg shadow-off-white/20'
+                          : 'border-off-white/40 bg-off-white/5 shadow-md shadow-black/50'
+                          }`}
+                        whileHover={{
+                          scale: 1.05,
+                          borderColor: 'rgb(245, 245, 240)',
+                          boxShadow: '0 8px 24px rgba(245, 245, 240, 0.3)',
+                          transition: { duration: 0.2 }
+                        }}
+                        whileTap={{ scale: 0.95, transition: { duration: 0.1 } }}
+                        animate={
+                          purchaseMode === mode
+                            ? {
+                                borderColor: 'rgb(245, 245, 240)',
+                                backgroundColor: 'rgba(245, 245, 240, 0.15)',
+                                boxShadow: '0 4px 16px rgba(245, 245, 240, 0.2), inset 0 1px 4px rgba(245, 245, 240, 0.1)'
+                              }
+                            : {
+                                borderColor: 'rgba(245, 245, 240, 0.4)',
+                                backgroundColor: 'rgba(245, 245, 240, 0.05)',
+                                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.5)'
+                              }
+                        }
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <span className="text-off-white uppercase tracking-wider">{label}</span>
+                        <span className="text-off-white/60 ml-2">${modePrice}</span>
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Bundle Size Selection (Hoodie + Sweatpants) */}
               {localProduct?.isBundle && localProduct.bundleItems && (
                 <div className="flex flex-col gap-6">
-                  {/* Hoodie Size */}
+                  {/* Hoodie Size - shown for 'set' and 'hoodie' modes */}
+                  {(purchaseMode === 'set' || purchaseMode === 'hoodie') && (
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between gap-4">
                       <label className="text-off-white/70 uppercase tracking-widest text-sm font-semibold">Hoodie Size</label>
@@ -890,8 +948,10 @@ export default function ProductDetail() {
                       ))}
                     </div>
                   </div>
+                  )}
 
-                  {/* Sweatpants Size */}
+                  {/* Sweatpants Size - shown for 'set' and 'sweatpants' modes */}
+                  {(purchaseMode === 'set' || purchaseMode === 'sweatpants') && (
                   <div className="flex flex-col gap-3">
                     <label className="text-off-white/70 uppercase tracking-widest text-sm font-semibold">Sweatpants Size</label>
                     <div className="flex flex-wrap gap-3">
@@ -930,6 +990,7 @@ export default function ProductDetail() {
                       ))}
                     </div>
                   </div>
+                  )}
 
                   {/* Fit Guide */}
                   <div 
@@ -1063,7 +1124,7 @@ export default function ProductDetail() {
                 onClick={handleAddToCart}
                 onMouseEnter={() => setIsHoveringAddToCart(true)}
                 onMouseLeave={() => setIsHoveringAddToCart(false)}
-                disabled={localProduct?.isBundle ? (!selectedHoodieSize || !selectedPantsSize) : !selectedVariant}
+                disabled={localProduct?.isBundle ? (purchaseMode === 'set' ? (!selectedHoodieSize || !selectedPantsSize) : purchaseMode === 'hoodie' ? !selectedHoodieSize : !selectedPantsSize) : !selectedVariant}
                 className="w-full px-6 py-4 md:px-10 md:py-6 text-sm md:text-lg font-bold uppercase tracking-widest disabled:cursor-not-allowed relative overflow-hidden rounded-xl md:rounded-2xl"
                 style={{
                   background: addToCartSuccess
@@ -1074,13 +1135,13 @@ export default function ProductDetail() {
                 }}
                 animate={{
                   scale: addToCartSuccess ? [1, 1.05, 1] : 1,
-                  opacity: (localProduct?.isBundle ? (!selectedHoodieSize || !selectedPantsSize) : !selectedVariant) ? 0.3 : 1,
+                  opacity: (localProduct?.isBundle ? (purchaseMode === 'set' ? (!selectedHoodieSize || !selectedPantsSize) : purchaseMode === 'hoodie' ? !selectedHoodieSize : !selectedPantsSize) : !selectedVariant) ? 0.3 : 1,
                   boxShadow: addToCartSuccess
                     ? '0 15px 50px rgba(74, 222, 128, 0.6), 0 0 60px rgba(74, 222, 128, 0.4), inset 0 2px 0 rgba(255, 255, 255, 0.6)'
                     : '0 10px 30px rgba(200, 200, 200, 0.3), 0 0 40px rgba(200, 200, 200, 0.15), inset 0 2px 0 rgba(255, 255, 255, 0.5)'
                 }}
                 whileHover={
-                  (localProduct?.isBundle ? (!selectedHoodieSize || !selectedPantsSize) : !selectedVariant)
+                  (localProduct?.isBundle ? (purchaseMode === 'set' ? (!selectedHoodieSize || !selectedPantsSize) : purchaseMode === 'hoodie' ? !selectedHoodieSize : !selectedPantsSize) : !selectedVariant)
                     ? {}
                     : {
                         scale: 1.04,
@@ -1090,7 +1151,7 @@ export default function ProductDetail() {
                       }
                 }
                 whileTap={
-                  (localProduct?.isBundle ? (!selectedHoodieSize || !selectedPantsSize) : !selectedVariant)
+                  (localProduct?.isBundle ? (purchaseMode === 'set' ? (!selectedHoodieSize || !selectedPantsSize) : purchaseMode === 'hoodie' ? !selectedHoodieSize : !selectedPantsSize) : !selectedVariant)
                     ? {}
                     : {
                         scale: 0.97,

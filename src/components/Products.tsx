@@ -13,13 +13,12 @@ interface Product {
   id: string;
   name: string;
   price: number;
-  originalPrice?: number;
   image: string;
   backImage: string;
   imagePosition?: string;
   description: string;
   handle: string;
-  isPreOrder?: boolean;
+  isBundle?: boolean;
 }
 
 export default function Products() {
@@ -395,16 +394,16 @@ export default function Products() {
                         }}
                       >
                         {/* Product Image */}
-                        <div 
-                          className={`${product.isPreOrder ? 'aspect-square' : 'aspect-[3/4]'} overflow-hidden relative`}
+                        <div
+                          className={`${product.isBundle ? 'aspect-square' : 'aspect-[3/4]'} overflow-hidden relative`}
                           style={{
-                            backgroundColor: product.isPreOrder ? '#e8e4e0' : 'transparent'
+                            backgroundColor: product.isBundle ? '#e8e4e0' : 'transparent'
                           }}
                         >
-                          <img 
-                            src={product.image} 
+                          <img
+                            src={product.image}
                             alt={product.name}
-                            className={`w-full h-full ${product.isPreOrder ? 'object-contain' : 'object-cover'}`}
+                            className={`w-full h-full ${product.isBundle ? 'object-contain' : 'object-cover'}`}
                           />
                           
                           {/* Gradient overlay */}
@@ -434,31 +433,15 @@ export default function Products() {
                           
                           {/* Price with glow effect */}
                           <div className="flex items-center justify-center gap-2">
-                            {product.originalPrice && (
-                              <span 
-                                className="text-lg md:text-xl font-bold text-off-white/40"
-                                style={{
-                                  textDecoration: 'line-through',
-                                  textDecorationColor: 'rgba(239, 68, 68, 0.8)',
-                                  textDecorationThickness: '2px'
-                                }}
-                              >
-                                ${product.originalPrice.toFixed(0)}
-                              </span>
-                            )}
-                            <div 
+                            <div
                               className="text-2xl md:text-3xl font-bold tracking-wide"
                               style={{
-                                background: product.isPreOrder 
-                                  ? 'linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%)'
-                                  : 'linear-gradient(135deg, #FFFFFF 0%, #E0E0E0 20%, #FFFFFF 40%, #C0C0C0 60%, #E8E8E8 80%, #FFFFFF 100%)',
+                                background: 'linear-gradient(135deg, #FFFFFF 0%, #E0E0E0 20%, #FFFFFF 40%, #C0C0C0 60%, #E8E8E8 80%, #FFFFFF 100%)',
                                 WebkitBackgroundClip: 'text',
                                 WebkitTextFillColor: 'transparent',
                                 backgroundClip: 'text',
                                 letterSpacing: '0.08em',
-                                filter: product.isPreOrder
-                                  ? 'drop-shadow(0 0 10px rgba(74, 222, 128, 0.6)) drop-shadow(0 0 25px rgba(74, 222, 128, 0.4))'
-                                  : 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.6)) drop-shadow(0 0 25px rgba(255, 255, 255, 0.4)) drop-shadow(0 0 40px rgba(200, 200, 200, 0.3))',
+                                filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.6)) drop-shadow(0 0 25px rgba(255, 255, 255, 0.4)) drop-shadow(0 0 40px rgba(200, 200, 200, 0.3))',
                               }}
                             >
                               ${product.price.toFixed(0)}
@@ -470,15 +453,11 @@ export default function Products() {
                             <motion.button
                               className="mt-4 md:mt-5 px-6 md:px-8 py-2 md:py-3 uppercase tracking-widest text-sm font-bold rounded-sm"
                               style={{
-                                background: product.isPreOrder
-                                  ? 'linear-gradient(135deg, #4ade80 0%, #22c55e 30%, #16a34a 70%, #15803d 100%)'
-                                  : 'linear-gradient(135deg, #E0E0E0 0%, #A8A8A8 20%, #F0F0F0 40%, #B0B0B0 60%, #D8D8D8 80%, #C0C0C0 100%)',
-                                color: product.isPreOrder ? '#ffffff' : '#1A1A1A',
-                                border: product.isPreOrder ? '1px solid rgba(74, 222, 128, 0.5)' : '1px solid rgba(255, 255, 255, 0.3)',
+                                background: 'linear-gradient(135deg, #E0E0E0 0%, #A8A8A8 20%, #F0F0F0 40%, #B0B0B0 60%, #D8D8D8 80%, #C0C0C0 100%)',
+                                color: '#1A1A1A',
+                                border: '1px solid rgba(255, 255, 255, 0.3)',
                                 cursor: 'pointer',
-                                boxShadow: product.isPreOrder
-                                  ? '0 4px 20px rgba(74, 222, 128, 0.4), 0 0 40px rgba(74, 222, 128, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
-                                  : '0 2px 10px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+                                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
                                 touchAction: 'manipulation',
                                 position: 'relative',
                                 zIndex: 100,
@@ -486,11 +465,9 @@ export default function Products() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: 10 }}
-                              whileHover={{ 
-                                scale: 1.05, 
-                                boxShadow: product.isPreOrder
-                                  ? '0 6px 30px rgba(74, 222, 128, 0.6), 0 0 50px rgba(74, 222, 128, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
-                                  : '0 0 25px rgba(200, 200, 200, 0.4), 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
+                              whileHover={{
+                                scale: 1.05,
+                                boxShadow: '0 0 25px rgba(200, 200, 200, 0.4), 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
                               }}
                               whileTap={{ scale: 0.95 }}
                               onPointerDown={(e) => e.stopPropagation()}
@@ -503,7 +480,7 @@ export default function Products() {
                                 }
                               }}
                             >
-                              {product.isPreOrder ? 'Pre-order Now' : 'Shop Now'}
+                              Shop Now
                             </motion.button>
                           )}
                         </div>
@@ -513,8 +490,10 @@ export default function Products() {
                 })}
               </AnimatePresence>
             </div>
+
           </motion.div>
         )}
+
 
       </main>
 

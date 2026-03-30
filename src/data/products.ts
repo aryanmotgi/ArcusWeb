@@ -17,6 +17,7 @@ import hoodieBackNew from '../assets/hoodieBack.png';
 export interface BundleItem {
   productId: string;
   name: string;
+  price?: number;
   variants: {
     S?: string;
     M?: string;
@@ -78,12 +79,11 @@ export const products: Product[] = [
   {
     id: 'gid://shopify/Product/10510557544613',
     name: 'Arcus Set',
-    price: 50.00,
-    originalPrice: 65.00,
+    price: 65.00,
     image: setFront,
     backImage: setBack,
     additionalImages: [hoodieFrontNew, hoodieBackNew, pantsFront, pantsBack, arcusPantsTxt],
-    description: 'The complete Arcus Set - Hoodie + Sweatpants bundle at a special pre-order price',
+    description: 'The complete Arcus Set - Hoodie + Sweatpants bundle. Also available individually.',
     handle: 'arcus-set',
     shopifyProductId: 'gid://shopify/Product/10510557544613',
     isBundle: true,
@@ -91,6 +91,7 @@ export const products: Product[] = [
       hoodie: {
         productId: 'gid://shopify/Product/10506306519205',
         name: 'Arcus Hoodie',
+        price: 45.00,
         variants: {
           S: 'gid://shopify/ProductVariant/47574866690213',
           M: 'gid://shopify/ProductVariant/47574866722981',
@@ -100,6 +101,7 @@ export const products: Product[] = [
       sweatpants: {
         productId: 'gid://shopify/Product/10506306551973',
         name: 'Arcus Sweatpants',
+        price: 35.00,
         variants: {
           S: 'gid://shopify/ProductVariant/47574870524069',
           M: 'gid://shopify/ProductVariant/47574870556837',
@@ -111,12 +113,11 @@ export const products: Product[] = [
       S: '',
       M: '',
       L: '',
-      XL: '',
+      XL: '', // Bundle uses bundleItems variants, not shopifyVariants
     },
     material: '100% Cotton',
     careInstructions: 'Machine wash cold with like colors. Tumble dry low. Do not bleach.',
-    sizeGuide: 'Unisex sizing. True to size with a relaxed fit. Size up for an oversized look.',
-    isPreOrder: true
+    sizeGuide: 'Unisex sizing. True to size with a relaxed fit. Size up for an oversized look.'
   },
   {
     id: 'gid://shopify/Product/10434520613029',
