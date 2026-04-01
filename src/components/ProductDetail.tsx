@@ -220,10 +220,10 @@ export default function ProductDetail() {
 
         if (!hoodieVariantId || !pantsVariantId) return;
 
-        // Split bundle price evenly: $32.50 each = $65.00 total
-        const pricePerItem = localProduct.price / 2;
+        const hoodiePrice = localProduct.bundleItems.hoodie?.price || 45;
+        const pantsPrice = localProduct.bundleItems.sweatpants?.price || 35;
 
-        // Add hoodie to cart
+        // Add hoodie to cart at full price
         addToCart({
           variantId: hoodieVariantId,
           productId: localProduct.bundleItems.hoodie?.productId || '',
@@ -231,11 +231,11 @@ export default function ProductDetail() {
           productTitle: `${localProduct.name} - Hoodie`,
           variantTitle: selectedHoodieSize,
           size: selectedHoodieSize,
-          price: pricePerItem,
+          price: hoodiePrice,
           image: productViews[0]?.image || '',
         });
 
-        // Add sweatpants to cart
+        // Add sweatpants to cart at full price
         addToCart({
           variantId: pantsVariantId,
           productId: localProduct.bundleItems.sweatpants?.productId || '',
@@ -243,7 +243,7 @@ export default function ProductDetail() {
           productTitle: `${localProduct.name} - Sweatpants`,
           variantTitle: selectedPantsSize,
           size: selectedPantsSize,
-          price: pricePerItem,
+          price: pantsPrice,
           image: productViews[0]?.image || '',
         });
       } else if (purchaseMode === 'hoodie') {

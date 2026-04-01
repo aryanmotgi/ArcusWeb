@@ -115,7 +115,14 @@ export default function Cart({ isOpen, onClose }: CartProps) {
   // Check if both tees are in cart for bundle discount
   const hasArcusTee = items.some(item => item.productHandle === 'arcus-tee');
   const hasAllPathsTee = items.some(item => item.productHandle === 'all-paths-tee');
-  const bundleDiscount = (hasArcusTee && hasAllPathsTee) ? 2.00 : 0;
+  const teeBundleDiscount = (hasArcusTee && hasAllPathsTee) ? 2.00 : 0;
+
+  // Check if both hoodie + sweatpants set items are in cart for set discount
+  const hasSetHoodie = items.some(item => item.productHandle === 'arcus-set-hoodie');
+  const hasSetPants = items.some(item => item.productHandle === 'arcus-set-sweatpants');
+  const setBundleDiscount = (hasSetHoodie && hasSetPants) ? 15.00 : 0;
+
+  const bundleDiscount = teeBundleDiscount + setBundleDiscount;
 
   const shipping = 0; // Handled at Shopify checkout
   const tax = 0; // Handled at Shopify checkout
