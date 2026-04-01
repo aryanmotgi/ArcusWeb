@@ -36,8 +36,9 @@ export default function Cart({ isOpen, onClose }: CartProps) {
         const firstItem = items[0];
         const size = firstItem.size;
 
-        // Find the opposite product to recommend
-        const otherProduct = products.find(p => p.handle !== currentProductHandle);
+        // Find the complementary tee to recommend
+        const recommendHandle = currentProductHandle === 'arcus-tee' ? 'all-paths-tee' : 'arcus-tee';
+        const otherProduct = products.find(p => p.handle === recommendHandle);
 
         if (otherProduct) {
           setRecommendedProduct(otherProduct);
@@ -89,6 +90,7 @@ export default function Cart({ isOpen, onClose }: CartProps) {
 
     // Find the variant ID for the recommended size
     const variantId = recommendedProduct.shopifyVariants[recommendedSize as 'S' | 'M' | 'L' | 'XL'];
+    if (!variantId) return;
 
     const cartItem = {
       variantId: variantId,
@@ -115,8 +117,8 @@ export default function Cart({ isOpen, onClose }: CartProps) {
   const hasAllPathsTee = items.some(item => item.productHandle === 'all-paths-tee');
   const bundleDiscount = (hasArcusTee && hasAllPathsTee) ? 2.00 : 0;
 
-  const shipping = 0; // TODO: Calculate shipping
-  const tax = 0; // TODO: Calculate tax
+  const shipping = 0; // Handled at Shopify checkout
+  const tax = 0; // Handled at Shopify checkout
   const total = subtotal - bundleDiscount + shipping + tax;
 
   return (
@@ -230,18 +232,6 @@ export default function Cart({ isOpen, onClose }: CartProps) {
                             <h3 className="text-off-white uppercase tracking-wide text-sm font-semibold truncate">
                               {item.productTitle}
                             </h3>
-                            {item.isPreOrder && (
-                              <span 
-                                className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded"
-                                style={{
-                                  background: 'rgba(74, 222, 128, 0.2)',
-                                  border: '1px solid rgba(74, 222, 128, 0.4)',
-                                  color: '#4ade80',
-                                }}
-                              >
-                                Pre-Order
-                              </span>
-                            )}
                           </div>
                           <p className="text-off-white/60 text-xs uppercase tracking-wider mt-1">
                             Size: {item.size}
@@ -277,28 +267,9 @@ export default function Cart({ isOpen, onClose }: CartProps) {
 
                           {/* Price and Remove Button */}
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="flex items-center gap-1.5">
-                              {item.originalPrice && (
-                                <span 
-                                  className="text-off-white/40 text-xs whitespace-nowrap"
-                                  style={{
-                                    textDecoration: 'line-through',
-                                    textDecorationColor: 'rgba(239, 68, 68, 0.8)',
-                                    textDecorationThickness: '1px'
-                                  }}
-                                >
-                                  ${(item.originalPrice * item.quantity).toFixed(2)}
-                                </span>
-                              )}
-                              <p 
-                                className="text-sm font-bold whitespace-nowrap"
-                                style={{
-                                  color: item.originalPrice ? '#4ade80' : 'rgb(245, 245, 240)'
-                                }}
-                              >
-                                ${(item.price * item.quantity).toFixed(2)}
-                              </p>
-                            </div>
+                            <p className="text-sm font-bold whitespace-nowrap text-off-white">
+                              ${(item.price * item.quantity).toFixed(2)}
+                            </p>
                             <motion.button
                               onClick={() => removeFromCart(item.variantId)}
                               className="p-1 text-off-white/60 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
