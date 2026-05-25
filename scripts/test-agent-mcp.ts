@@ -4,7 +4,8 @@
 //
 // Exits non-zero if any assertion fails.
 
-import handler from "../api/mcp";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const handler = require("../api/mcp.js");
 
 // --- minimal mock req/res that mimics Vercel's serverless invocation -------
 function invoke(method: string, body?: any): Promise<{ status: number; json: any }> {

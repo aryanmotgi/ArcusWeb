@@ -3,8 +3,13 @@
 // A dependency-free MCP JSON-RPC 2.0 endpoint that exposes Arcus Wear's
 // e-commerce catalog to AI agents (e.g. Roam's personal agent).
 //
+// Authored as plain CommonJS JavaScript on purpose: a Vercel serverless
+// function that needs no transpilation and no module-format guessing, so it
+// runs identically locally and on Vercel regardless of project tsconfig /
+// package "type". Requires Node 18+ (global fetch).
+//
 // Design notes:
-//   * Catalog source  : the LIVE store's public Shopify JSON endpoints
+//   * Catalog source  : the LIVE store's public Shopify JSON endpoint
 //                        (https://arcuswear.myshopify.com/products.json).
 //                        No auth, no scraping, always current.
 //   * Checkout        : Shopify cart permalinks (.../cart/<variant>:<qty>,...)
@@ -24,52 +29,13 @@ const SERVER_VERSION = "0.1.0";
 const MCP_PROTOCOL_VERSION = "2025-06-18";
 
 // ---------------------------------------------------------------------------
-// Minimal Vercel handler types (avoids adding @vercel/node as a dependency).
-// ---------------------------------------------------------------------------
-interface Req {
-  method?: string;
-  body?: any;
-  headers?: Record<string, any>;
-}
-interface Res {
-  setHeader(name: string, value: string): void;
-  status(code: number): Res;
-  json(body: any): void;
-  end(body?: any): void;
-}
-
-// ---------------------------------------------------------------------------
 // Shopify catalog access (public, unauthenticated /products.json).
-// ---------------------------------------------------------------------------
-interface ShopifyVariant {
-  id: number;
-  title: string;
-  price: string;
-  available: boolean;
-  option1: string | null;
-  option2: string | null;
-  option3: string | null;
-}
-interface ShopifyImage {
-  src: string;
-}
-interface ShopifyProduct {
-  id: number;
-  title: string;
-  handle: string;
-  body_html: string | null;
-  product_type: string;
-  tags: string[] | string;
-  variants: ShopifyVariant[];
-  images: ShopifyImage[];
-  options?: { name: string; values: string[] }[];
-}
-
 // Warm-invocation cache so we don't re-fetch the catalog on every tool call.
-let _catalogCache: { at: number; products: ShopifyProduct[] } | null = null;
-const CATALOG_TTL_MS = 60_000;
+// ---------------------------------------------------------------------------
+let _catalogCache = null;
+const CATALOG_TTL_MS = 60000;
 
-async function getCatalog(): Promise<ShopifyProduct[]> {
+async function getCatalog() {
   if (_catalogCache && Date.now() - _catalogCache.at < CATALOG_TTL_MS) {
     return _catalogCache.products;
   }
@@ -77,8 +43,8 @@ async function getCatalog(): Promise<ShopifyProduct[]> {
     headers: { Accept: "application/json" },
   });
   if (!res.ok) throw new Error(`Shopify catalog fetch failed (${res.status})`);
-  const data = (await res.json()) as { products: ShopifyProduct[] };
-  const products = (data.products || []).filter((p) => p.variants?.length);
+  const data = await res.json();
+  const products = (data.products || []).filter((p) => p.variants && p.variants.length);
   _catalogCache = { at: Date.now(), products };
   return products;
 }
@@ -86,23 +52,23 @@ async function getCatalog(): Promise<ShopifyProduct[]> {
 // ---------------------------------------------------------------------------
 // Shaping helpers — translate Shopify shapes into the agent-facing contract.
 // ---------------------------------------------------------------------------
-function productPrice(p: ShopifyProduct): number {
+function productPrice(p) {
   const prices = p.variants.map((v) => parseFloat(v.price)).filter((n) => !isNaN(n));
   return prices.length ? Math.min(...prices) : 0;
 }
 
-function firstImage(p: ShopifyProduct): string | null {
-  return p.images?.[0]?.src ?? null;
+function firstImage(p) {
+  return (p.images && p.images[0] && p.images[0].src) || null;
 }
 
-function plainText(html: string | null, fallback: string): string {
+function plainText(html, fallback) {
   if (!html) return fallback;
   const text = html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
   return text || fallback;
 }
 
 // A product can be referenced by numeric id, Shopify GID, or handle.
-function matchesProductRef(p: ShopifyProduct, ref: string): boolean {
+function matchesProductRef(p, ref) {
   if (!ref) return false;
   const r = String(ref).trim();
   if (p.handle === r) return true;
@@ -111,7 +77,7 @@ function matchesProductRef(p: ShopifyProduct, ref: string): boolean {
   return false;
 }
 
-function summarizeProduct(p: ShopifyProduct) {
+function summarizeProduct(p) {
   return {
     id: p.handle, // stable, human-readable; accepted back by get_product
     product_id: String(p.id),
@@ -124,7 +90,7 @@ function summarizeProduct(p: ShopifyProduct) {
   };
 }
 
-function detailProduct(p: ShopifyProduct) {
+function detailProduct(p) {
   return {
     id: p.handle,
     product_id: String(p.id),
@@ -132,7 +98,7 @@ function detailProduct(p: ShopifyProduct) {
     description: plainText(p.body_html, p.title),
     price: productPrice(p),
     currency: "USD",
-    product_url: `https://www.arcuswear.store/products`,
+    product_url: "https://www.arcuswear.store/products",
     variants: p.variants.map((v) => ({
       id: `gid://shopify/ProductVariant/${v.id}`,
       variant_id: String(v.id),
@@ -150,12 +116,9 @@ function detailProduct(p: ShopifyProduct) {
 // ---------------------------------------------------------------------------
 // Stateless cart: contents are base64url-encoded into the cart_id itself.
 // ---------------------------------------------------------------------------
-interface CartLine {
-  variant_id: string;
-  quantity: number;
-}
+const CART_PREFIX = "cart_";
 
-function b64urlEncode(obj: any): string {
+function b64urlEncode(obj) {
   return Buffer.from(JSON.stringify(obj), "utf8")
     .toString("base64")
     .replace(/\+/g, "-")
@@ -163,15 +126,13 @@ function b64urlEncode(obj: any): string {
     .replace(/=+$/, "");
 }
 
-function b64urlDecode(s: string): any {
+function b64urlDecode(s) {
   const pad = s.length % 4 ? "=".repeat(4 - (s.length % 4)) : "";
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
   return JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
 }
 
-const CART_PREFIX = "cart_";
-
-function decodeCart(cartId?: string): CartLine[] {
+function decodeCart(cartId) {
   if (!cartId) return [];
   try {
     const payload = cartId.startsWith(CART_PREFIX) ? cartId.slice(CART_PREFIX.length) : cartId;
@@ -180,21 +141,21 @@ function decodeCart(cartId?: string): CartLine[] {
     return lines
       .filter((l) => l && l.variant_id && l.quantity > 0)
       .map((l) => ({ variant_id: String(l.variant_id), quantity: Number(l.quantity) }));
-  } catch {
+  } catch (e) {
     return [];
   }
 }
 
-function encodeCart(lines: CartLine[]): string {
+function encodeCart(lines) {
   return CART_PREFIX + b64urlEncode(lines);
 }
 
-function numericVariantId(variantId: string): string {
+function numericVariantId(variantId) {
   if (variantId.startsWith("gid://")) return variantId.split("/").pop() || variantId;
   return variantId;
 }
 
-function cartPermalink(lines: CartLine[], email?: string): string {
+function cartPermalink(lines, email) {
   const path = lines.map((l) => `${numericVariantId(l.variant_id)}:${l.quantity}`).join(",");
   let url = `https://${SHOP_DOMAIN}/cart/${path}`;
   if (email) url += `?checkout[email]=${encodeURIComponent(email)}`;
@@ -202,7 +163,7 @@ function cartPermalink(lines: CartLine[], email?: string): string {
 }
 
 // Resolve a variant_id to its product/variant detail (for cart display).
-async function describeLine(line: CartLine) {
+async function describeLine(line) {
   const wanted = numericVariantId(line.variant_id);
   const catalog = await getCatalog();
   for (const p of catalog) {
@@ -234,7 +195,7 @@ async function describeLine(line: CartLine) {
   };
 }
 
-async function buildCartView(lines: CartLine[]) {
+async function buildCartView(lines) {
   const items = await Promise.all(lines.map(describeLine));
   const subtotal = items.reduce((s, i) => s + i.line_total, 0);
   return {
@@ -312,10 +273,7 @@ const TOOLS = [
       type: "object",
       properties: {
         cart_id: { type: "string", description: "Existing cart id (optional)" },
-        variant_id: {
-          type: "string",
-          description: "Variant id or GID (from get_product variants[].id)",
-        },
+        variant_id: { type: "string", description: "Variant id or GID (from get_product variants[].id)" },
         quantity: { type: "number", description: "Quantity to add (default 1)" },
       },
       required: ["variant_id"],
@@ -357,7 +315,7 @@ const TOOLS = [
 // ---------------------------------------------------------------------------
 // Tool implementations.
 // ---------------------------------------------------------------------------
-async function runTool(name: string, args: Record<string, any>): Promise<any> {
+async function runTool(name, args) {
   switch (name) {
     case "list_products": {
       const catalog = await getCatalog();
@@ -419,7 +377,7 @@ async function runTool(name: string, args: Record<string, any>): Promise<any> {
     case "get_shipping_quote": {
       const lines = decodeCart(args.cart_id);
       const view = await buildCartView(lines);
-      const country = (args.address?.country || args.address?.country_code || "US")
+      const country = (args.address && (args.address.country || args.address.country_code) || "US")
         .toString()
         .toUpperCase();
       const domestic = ["US", "USA", "UNITED STATES"].includes(country);
@@ -482,12 +440,14 @@ async function runTool(name: string, args: Record<string, any>): Promise<any> {
 // ---------------------------------------------------------------------------
 // JSON-RPC dispatch.
 // ---------------------------------------------------------------------------
-async function handleRpc(msg: any): Promise<any> {
-  const { id, method, params } = msg || {};
-  const reply = (result: any) => ({ jsonrpc: "2.0", id: id ?? null, result });
-  const fail = (code: number, message: string) => ({
+async function handleRpc(msg) {
+  const id = msg && msg.id;
+  const method = msg && msg.method;
+  const params = msg && msg.params;
+  const reply = (result) => ({ jsonrpc: "2.0", id: id != null ? id : null, result });
+  const fail = (code, message) => ({
     jsonrpc: "2.0",
-    id: id ?? null,
+    id: id != null ? id : null,
     error: { code, message },
   });
 
@@ -509,8 +469,8 @@ async function handleRpc(msg: any): Promise<any> {
       return reply({ tools: TOOLS });
 
     case "tools/call": {
-      const toolName = params?.name;
-      const args = params?.arguments || {};
+      const toolName = params && params.name;
+      const args = (params && params.arguments) || {};
       if (!toolName) return fail(-32602, "Missing tool name");
       try {
         const result = await runTool(toolName, args);
@@ -518,10 +478,10 @@ async function handleRpc(msg: any): Promise<any> {
           content: [{ type: "text", text: JSON.stringify(result) }],
           isError: !!(result && result.error),
         });
-      } catch (err: any) {
+      } catch (err) {
         if (err && typeof err.code === "number") return fail(err.code, err.message);
         return reply({
-          content: [{ type: "text", text: JSON.stringify({ error: err?.message || String(err) }) }],
+          content: [{ type: "text", text: JSON.stringify({ error: (err && err.message) || String(err) }) }],
           isError: true,
         });
       }
@@ -533,9 +493,9 @@ async function handleRpc(msg: any): Promise<any> {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP entrypoint.
+// HTTP entrypoint (Vercel Node serverless signature).
 // ---------------------------------------------------------------------------
-export default async function handler(req: Req, res: Res) {
+async function handler(req, res) {
   // CORS — allow agents from any origin (public, read-mostly endpoint).
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
@@ -571,7 +531,7 @@ export default async function handler(req: Req, res: Res) {
   if (typeof body === "string") {
     try {
       body = JSON.parse(body);
-    } catch {
+    } catch (e) {
       res.status(400).json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } });
       return;
     }
@@ -590,11 +550,14 @@ export default async function handler(req: Req, res: Res) {
       return;
     }
     res.status(200).json(response);
-  } catch (err: any) {
+  } catch (err) {
     res.status(500).json({
       jsonrpc: "2.0",
-      id: body?.id ?? null,
-      error: { code: -32603, message: err?.message || "Internal error" },
+      id: (body && body.id) != null ? body.id : null,
+      error: { code: -32603, message: (err && err.message) || "Internal error" },
     });
   }
 }
+
+module.exports = handler;
+module.exports.default = handler;
