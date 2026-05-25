@@ -112,6 +112,35 @@ async function main() {
   const cart2 = unwrap(await rpc(7, "tools/call", { name: "get_cart", arguments: { cart_id: cartId } }));
   check("get_cart round-trips the cart_id (1 item)", cart2.cart?.item_count === 1, cart2);
 
+  // 8b. search results carry variant ids (so an agent can add straight from search)
+  check(
+    "search_products results include variants[] + default_variant_id",
+    Array.isArray((search.products?.[0] || {}).variants) && !!search.products?.[0]?.default_variant_id,
+    search.products?.[0]
+  );
+
+  // 8c. add_to_cart by product HANDLE + size (the search->add path that was failing)
+  const byHandle = unwrap(
+    await rpc(20, "tools/call", { name: "add_to_cart", arguments: { product_id: "arcus-hoodie", size: "M" } })
+  );
+  check(
+    "add_to_cart by handle+size resolves the real variant",
+    byHandle.cart?.item_count === 1 && byHandle.cart?.added?.product_name === "Arcus Hoodie",
+    byHandle
+  );
+
+  // 8d. add_to_cart by numeric product_id (no size) falls back to an available variant
+  const byProductId = unwrap(
+    await rpc(21, "tools/call", { name: "add_to_cart", arguments: { product_id: detail.product.product_id } })
+  );
+  check("add_to_cart by product_id falls back to an available variant", byProductId.cart?.item_count === 1, byProductId);
+
+  // 8e. a bogus variant returns a helpful error (not a raw Shopify failure)
+  const bogus = unwrap(
+    await rpc(22, "tools/call", { name: "add_to_cart", arguments: { variant_id: "not-a-real-variant" } })
+  );
+  check("add_to_cart with a bogus id returns a helpful error + available list", !!bogus.error && Array.isArray(bogus.available), bogus);
+
   // 9. get_shipping_quote
   const shipping = unwrap(
     await rpc(8, "tools/call", {

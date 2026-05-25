@@ -163,6 +163,14 @@ function matchesProductRef(p, ref) {
   return p.handle === r || String(p.id) === r || r === `gid://shopify/Product/${p.id}`;
 }
 function summarizeProduct(p) {
+  // Include variants so an agent can add to cart straight from search/list
+  // results without a separate get_product call.
+  const variants = p.variants.map((v) => ({
+    variant_id: String(v.id),
+    size: v.option1,
+    available: v.available,
+  }));
+  const firstAvail = p.variants.find((v) => v.available) || p.variants[0];
   return {
     id: p.handle,
     product_id: String(p.id),
@@ -172,6 +180,8 @@ function summarizeProduct(p) {
     image_url: firstImage(p),
     description: plainText(p.body_html, p.title),
     available: p.variants.some((v) => v.available),
+    variants,
+    default_variant_id: firstAvail ? String(firstAvail.id) : null,
   };
 }
 function detailProduct(p) {
@@ -225,6 +235,51 @@ function decodeCartId(cartId) {
 function variantGid(variantId) {
   const v = String(variantId);
   return v.startsWith("gid://") ? v : `gid://shopify/ProductVariant/${v}`;
+}
+
+// Resolve whatever the agent passed into a real, existing variant id.
+// Accepts a true variant id/GID, OR a product handle / product id / product GID
+// (optionally + a size), and falls back to the first available variant.
+// Returns { variant_id, product, variant } or { error, available }.
+async function resolveVariant(args) {
+  const catalog = await getCatalog();
+  const rawVariant = args.variant_id != null ? String(args.variant_id).trim() : "";
+  const numeric = rawVariant.startsWith("gid://") ? rawVariant.split("/").pop() : rawVariant;
+
+  // 1) Direct, valid variant id?
+  if (numeric) {
+    for (const p of catalog) {
+      const v = p.variants.find((vv) => String(vv.id) === numeric);
+      if (v) return { variant_id: String(v.id), product: p, variant: v };
+    }
+  }
+
+  // 2) Treat the reference as a product (explicit product_id, else the variant
+  //    field may actually be a handle / product id the agent guessed).
+  const productRef = args.product_id != null ? String(args.product_id).trim() : rawVariant;
+  const product = catalog.find((p) => matchesProductRef(p, productRef));
+  if (product) {
+    const wantSize = (args.size != null ? String(args.size) : "").trim().toLowerCase();
+    let v = null;
+    if (wantSize) {
+      v = product.variants.find(
+        (vv) => (vv.option1 || "").toLowerCase() === wantSize || (vv.title || "").toLowerCase() === wantSize
+      );
+      if (!v) {
+        return {
+          error: `Product '${product.title}' has no size '${args.size}'.`,
+          available: product.variants.map((vv) => ({ variant_id: String(vv.id), size: vv.option1, available: vv.available })),
+        };
+      }
+    }
+    if (!v) v = product.variants.find((vv) => vv.available) || product.variants[0];
+    if (v) return { variant_id: String(v.id), product, variant: v };
+  }
+
+  return {
+    error: `Could not resolve a product variant from variant_id='${args.variant_id ?? ""}' product_id='${args.product_id ?? ""}'. Use a variant_id from get_product/list_products, or a product handle plus a size.`,
+    available: catalog.map((p) => ({ id: p.handle, name: p.title, sizes: p.variants.map((vv) => vv.option1) })),
+  };
 }
 
 // Shape a Shopify cart object into the agent-facing cart view.
@@ -327,15 +382,17 @@ const TOOLS = [
   {
     name: "add_to_cart",
     description:
-      "Add a product variant to a cart and return the updated cart (including a real Shopify checkout_url). Omit cart_id to start a new cart.",
+      "Add an item to a cart and return the updated cart (including a real Shopify checkout_url). Identify the item by variant_id (preferred, from list_products/get_product), OR by product_id/handle plus an optional size — the server resolves the right variant. Omit cart_id to start a new cart.",
     inputSchema: {
       type: "object",
       properties: {
         cart_id: { type: "string", description: "Existing cart id (optional)" },
-        variant_id: { type: "string", description: "Variant id or GID (from get_product variants[].id)" },
+        variant_id: { type: "string", description: "Variant id or GID (from variants[].id). Preferred." },
+        product_id: { type: "string", description: "Product handle or id, if you don't have a variant_id" },
+        size: { type: "string", description: "Size (e.g. 'M'), used with product_id to pick the variant" },
         quantity: { type: "number", description: "Quantity to add (default 1)" },
       },
-      required: ["variant_id"],
+      required: [],
     },
   },
   {
@@ -424,9 +481,15 @@ async function runTool(name, args) {
     }
 
     case "add_to_cart": {
-      if (!args.variant_id) return { error: "variant_id is required" };
+      if (args.variant_id == null && args.product_id == null) {
+        return { error: "Provide variant_id, or product_id (+ optional size)." };
+      }
+      // Resolve to a real variant — tolerates an agent passing a product handle
+      // or product id instead of a variant id (the common search -> add path).
+      const resolved = await resolveVariant(args);
+      if (resolved.error) return resolved;
       const qty = Number(args.quantity) > 0 ? Number(args.quantity) : 1;
-      const line = { merchandiseId: variantGid(args.variant_id), quantity: qty };
+      const line = { merchandiseId: variantGid(resolved.variant_id), quantity: qty };
       const existingGid = decodeCartId(args.cart_id);
       let cart;
       if (existingGid) {
@@ -436,7 +499,13 @@ async function runTool(name, args) {
       } else {
         cart = await cartCreate([line]);
       }
-      return { cart: cartView(cart) };
+      const view = cartView(cart);
+      view.added = {
+        variant_id: resolved.variant_id,
+        product_name: resolved.product.title,
+        size: resolved.variant.option1,
+      };
+      return { cart: view };
     }
 
     case "get_shipping_quote": {
