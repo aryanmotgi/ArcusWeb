@@ -1,6 +1,6 @@
 # Arcus Wear
 
-> Streetwear brand. Quality basics and limited-run drops.
+> Streetwear brand. Hoodies, tees, sweatpants, and limited-run sets.
 
 ## Shop
 
@@ -12,7 +12,7 @@
 - endpoint: https://www.arcuswear.store/api/mcp
 - protocol: mcp
 - name: Arcus Wear
-- description: Browse the catalog, add to cart, get shipping quotes, and check out.
+- description: Shop hoodies, tees, sweatpants and sets — browse, add to cart, get shipping quotes, and check out.
 - capabilities: list_products, get_product, search_products, get_cart, add_to_cart, get_shipping_quote, create_checkout
 - auth: none
 - version: 0.1.0

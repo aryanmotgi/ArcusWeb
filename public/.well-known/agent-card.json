@@ -1,7 +1,7 @@
 {
   "name": "Arcus Wear",
   "url": "https://www.arcuswear.store/api/mcp",
-  "description": "Streetwear brand. Browse the catalog, add to cart, get shipping quotes, and check out via a one-tap Shopify-hosted checkout.",
+  "description": "Streetwear brand. Shop hoodies, tees, sweatpants and sets — browse the catalog, add to cart, get shipping quotes, and check out via a one-tap Shopify-hosted checkout.",
   "protocolVersion": "0.1",
   "provider": {
     "organization": "Arcus Wear",
