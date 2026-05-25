@@ -121,7 +121,7 @@ async function main() {
   );
   check("get_shipping_quote returns shipping options", (shipping.shipping_options || []).length > 0, shipping);
 
-  // 10. create_checkout → real Shopify-hosted URL
+  // 10. create_checkout → real Shopify Cart API checkout URL
   const checkout = unwrap(
     await rpc(9, "tools/call", {
       name: "create_checkout",
@@ -129,18 +129,26 @@ async function main() {
     })
   );
   const url: string = checkout.checkout_url || "";
-  check("create_checkout returns a Shopify cart/checkout URL", /myshopify\.com\/cart\//.test(url), checkout);
-  console.log(`   → checkout_url: ${url}`);
+  // Cart API checkout URLs look like .../cart/c/<token>?key=<key> (NOT the dead
+  // legacy /cart/<variantId>:<qty> permalink).
+  check("create_checkout returns a Cart API checkout URL (/cart/c/)", /\/cart\/c\/[A-Za-z0-9]/.test(url), checkout);
+  console.log(`   → checkout_url: ${url.replace(/key=[^&]*/, "key=…").replace(/\/c\/[^/?]*/, "/c/…")}`);
 
-  // 11. Verify the checkout URL actually resolves to a real Shopify checkout
+  // 11. Verify the checkout URL's first hop heads into a real checkout
+  //     (shop.app callback or /checkouts/cn/...) — NOT a bounce to the store root.
   if (url) {
     try {
       const r = await fetch(url, { method: "GET", redirect: "manual" });
       const loc = r.headers.get("location") || "";
-      const reachesCheckout = r.status === 302 || r.status === 200 || /checkout|shop\.app/.test(loc);
-      check("checkout URL resolves to a live Shopify checkout (redirect)", reachesCheckout, { status: r.status, location: loc.slice(0, 120) });
+      const reachesCheckout = /shop\.app\/checkout|\/checkouts\//.test(loc);
+      const bouncedToRoot = /^https?:\/\/[^/]+\/?$/.test(loc);
+      check(
+        "checkout URL heads into a live Shopify checkout (not a root bounce)",
+        reachesCheckout && !bouncedToRoot,
+        { status: r.status, location: loc.slice(0, 90) }
+      );
     } catch (e: any) {
-      check("checkout URL resolves to a live Shopify checkout (redirect)", false, e?.message);
+      check("checkout URL heads into a live Shopify checkout (not a root bounce)", false, e?.message);
     }
   }
 
