@@ -1,0 +1,51 @@
+{
+  "name": "Arcus Wear",
+  "url": "https://www.arcuswear.store/api/mcp",
+  "description": "Streetwear brand. Browse the catalog, add to cart, get shipping quotes, and check out via a one-tap Shopify-hosted checkout.",
+  "protocolVersion": "0.1",
+  "provider": {
+    "organization": "Arcus Wear",
+    "url": "https://www.arcuswear.store"
+  },
+  "preferredTransport": "mcp",
+  "capabilities": {
+    "streaming": false
+  },
+  "skills": [
+    {
+      "name": "list_products",
+      "description": "List products in the Arcus Wear catalog",
+      "tags": ["commerce", "browse", "catalog", "product-search"]
+    },
+    {
+      "name": "get_product",
+      "description": "Get full detail for one product including size/color variants and availability",
+      "tags": ["commerce", "product-info"]
+    },
+    {
+      "name": "search_products",
+      "description": "Keyword search over the Arcus Wear catalog",
+      "tags": ["commerce", "search", "product-search"]
+    },
+    {
+      "name": "get_cart",
+      "description": "Get the current contents of a cart",
+      "tags": ["commerce", "cart"]
+    },
+    {
+      "name": "add_to_cart",
+      "description": "Add a product variant to a cart",
+      "tags": ["commerce", "cart"]
+    },
+    {
+      "name": "get_shipping_quote",
+      "description": "Get shipping options and estimated delivery for a cart",
+      "tags": ["commerce", "shipping", "quote-request"]
+    },
+    {
+      "name": "create_checkout",
+      "description": "Create a Shopify-hosted checkout URL for the cart",
+      "tags": ["commerce", "checkout", "product-purchase"]
+    }
+  ]
+}
