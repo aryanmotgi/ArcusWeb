@@ -15,7 +15,11 @@
 - description: Shop hoodies, tees, sweatpants and sets — browse, add to cart, get shipping quotes, and check out.
 - capabilities: list_products, get_product, search_products, get_cart, add_to_cart, get_shipping_quote, create_checkout
 - auth: none
-- version: 0.1.0
+- version: 0.2.0
 - regions: US
 - languages: en
-- manifest: https://www.arcuswear.store/.well-known/agent-card.json
+- manifest: https://www.arcuswear.store/.well-known/mcp.json
+
+## Contact
+
+- [arcuswear.store](https://www.arcuswear.store)

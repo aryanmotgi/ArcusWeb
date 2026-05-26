@@ -1,0 +1,19 @@
+{
+  "name": "Arcus Wear",
+  "description": "Streetwear brand. Shop hoodies, tees, sweatpants and sets — browse, add to cart, get shipping quotes, and check out.",
+  "protocol": "mcp",
+  "protocolVersion": "2025-06-18",
+  "transport": "http",
+  "endpoint": "https://www.arcuswear.store/api/mcp",
+  "url": "https://www.arcuswear.store/api/mcp",
+  "auth": "none",
+  "capabilities": [
+    "list_products",
+    "get_product",
+    "search_products",
+    "get_cart",
+    "add_to_cart",
+    "get_shipping_quote",
+    "create_checkout"
+  ]
+}
