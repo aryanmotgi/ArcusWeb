@@ -35,8 +35,20 @@ const STOREFRONT_API_VERSION = "2024-10";
 // public catalog and manages anonymous carts.
 const STOREFRONT_TOKEN = process.env.SHOPIFY_STOREFRONT_TOKEN || "e0ace438311ad808ec4bb5bbae6bce30";
 
+// --- Agentic payment (complete_order) config --------------------------------
+// True pay-without-redirect: charge a PSP-tokenized payment method on OUR Stripe
+// (Arcus is merchant-of-record) then create the PAID order via Shopify Admin.
+// The caller relays a Stripe-minted payment-method token (pm_.../tok_...) — never
+// a raw card — so card data stays in Stripe's PCI scope, not ours. All optional:
+// without these creds complete_order returns a clear "not configured" error and
+// the rest of the agent is unaffected.
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
+const SHOPIFY_ADMIN_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN || "";
+const ADMIN_API_VERSION = process.env.SHOPIFY_ADMIN_API_VERSION || "2024-10";
+const MAX_ORDER_USD = parseFloat(process.env.MAX_ORDER_USD || "2000"); // spend guard
+
 const SERVER_NAME = "Arcus Wear Agent";
-const SERVER_VERSION = "0.2.0";
+const SERVER_VERSION = "0.3.0";
 const MCP_PROTOCOL_VERSION = "2025-06-18";
 
 // ---------------------------------------------------------------------------
@@ -140,6 +152,69 @@ async function cartSetEmail(cartId, email) {
   const r = data.cartBuyerIdentityUpdate;
   if (r.userErrors && r.userErrors.length) throw new Error(r.userErrors.map((e) => e.message).join("; "));
   return r.cart;
+}
+
+// ---------------------------------------------------------------------------
+// Agentic payment — Stripe charge + Shopify Admin paid-order creation.
+// Dependency-free: both are plain REST calls over global fetch.
+// ---------------------------------------------------------------------------
+
+// Create + confirm a Stripe PaymentIntent with a caller-supplied payment-method
+// token (pm_.../tok_...). Idempotency-Key makes a retried checkout safe.
+async function stripeChargeOnce(amountCents, currency, paymentMethod, idempotencyKey, metadata) {
+  const form = new URLSearchParams();
+  form.set("amount", String(amountCents));
+  form.set("currency", String(currency || "usd").toLowerCase());
+  form.set("payment_method", paymentMethod);
+  form.set("confirm", "true");
+  form.set("off_session", "true");
+  form.append("payment_method_types[]", "card"); // card only — no redirect-based methods
+  for (const [k, v] of Object.entries(metadata || {})) form.set(`metadata[${k}]`, String(v));
+
+  const res = await fetch("https://api.stripe.com/v1/payment_intents", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: form.toString(),
+  });
+  const pi = await res.json();
+  if (!res.ok) {
+    const msg = pi && pi.error ? pi.error.message : `Stripe error ${res.status}`;
+    return { ok: false, error: msg, code: pi && pi.error ? pi.error.code : undefined };
+  }
+  if (pi.status !== "succeeded") {
+    // e.g. requires_action (3DS) — can't be completed off-session/headless.
+    return { ok: false, error: `Payment not completed (status: ${pi.status}). This card needs interactive authentication; use the hosted checkout instead.`, status: pi.status, payment_intent_id: pi.id };
+  }
+  return { ok: true, payment_intent_id: pi.id, amount: pi.amount, currency: pi.currency };
+}
+
+// Create a PAID order in Shopify via the Admin API (records the Stripe charge as
+// the transaction). Requires an Admin token with write_orders.
+async function adminCreateOrder({ lineItems, email, shippingAddress, amount, currency, piId }) {
+  const order = {
+    line_items: lineItems, // [{ variant_id: <numeric>, quantity }]
+    financial_status: "paid",
+    email: email || undefined,
+    shipping_address: shippingAddress || undefined,
+    note: `Agentic checkout via Roam. Stripe PaymentIntent ${piId}.`,
+    tags: "agentic, roam",
+    transactions: [{ kind: "sale", status: "success", amount: String(amount), currency, gateway: "stripe" }],
+  };
+  const res = await fetch(`https://${SHOP_DOMAIN}/admin/api/${ADMIN_API_VERSION}/orders.json`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": SHOPIFY_ADMIN_TOKEN },
+    body: JSON.stringify({ order }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const msg = data && data.errors ? JSON.stringify(data.errors) : `Shopify Admin error ${res.status}`;
+    return { ok: false, error: msg };
+  }
+  return { ok: true, order: data.order };
 }
 
 // ---------------------------------------------------------------------------
@@ -426,6 +501,21 @@ const TOOLS = [
       required: ["cart_id"],
     },
   },
+  {
+    name: "complete_order",
+    description:
+      "Complete a purchase WITHOUT a browser redirect: charges a Stripe-tokenized payment method and places the paid order. Pass cart_id and payment_method (a Stripe payment-method or test token, e.g. 'pm_card_visa' — NOT a raw card; the buyer's card is tokenized by Stripe, never handled here). Arcus Wear is the merchant of record and charges its own Stripe; the caller only relays the token. Returns the order id/number and paid status. If the card needs interactive 3-D Secure, this returns an error and you should fall back to create_checkout.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cart_id: { type: "string", description: "Cart id from add_to_cart (must contain items)." },
+        payment_method: { type: "string", description: "Stripe payment-method id or token (pm_.../tok_...). Use a Stripe test token like 'pm_card_visa' in test mode." },
+        customer_email: { type: "string", description: "Buyer email for the order/receipt." },
+        shipping_address: { type: "object", description: "Shipping address (first_name, last_name, address1, city, province, zip, country)." },
+      },
+      required: ["cart_id", "payment_method"],
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -558,6 +648,71 @@ async function runTool(name, args) {
         customer_email: args.customer_email || null,
         instructions:
           "Open checkout_url in a browser to complete payment. Shipping and taxes are calculated by Shopify on the checkout page.",
+      };
+    }
+
+    case "complete_order": {
+      if (!STRIPE_SECRET_KEY || !SHOPIFY_ADMIN_TOKEN) {
+        return {
+          error:
+            "Agentic checkout isn't configured on this store yet. Set STRIPE_SECRET_KEY and SHOPIFY_ADMIN_TOKEN (Admin token with write_orders) to enable complete_order. Meanwhile use create_checkout for the hosted checkout URL.",
+        };
+      }
+      const paymentMethod = String(args.payment_method || "").trim();
+      if (!paymentMethod) return { error: "payment_method is required (a Stripe pm_/tok_ token, e.g. 'pm_card_visa' in test mode)." };
+      const gid = decodeCartId(args.cart_id);
+      if (!gid) return { error: "Unknown or empty cart — add items with add_to_cart first." };
+      const cart = await cartFetch(gid);
+      if (!cart || !cart.totalQuantity) return { error: "Cart is empty or expired — add items with add_to_cart first." };
+
+      // Storefront carts carry no tax until hosted checkout; charge total if present, else subtotal.
+      const amtObj = (cart.cost && (cart.cost.totalAmount || cart.cost.subtotalAmount)) || null;
+      const amount = amtObj ? parseFloat(amtObj.amount) : 0;
+      const currency = (amtObj && amtObj.currencyCode) || "USD";
+      if (!(amount > 0)) return { error: "Could not determine cart total." };
+      if (amount > MAX_ORDER_USD) return { error: `Order total $${amount} exceeds this store's agentic spend cap ($${MAX_ORDER_USD}).` };
+
+      // 1) Charge on Arcus's own Stripe (idempotent per cart → safe to retry).
+      const charge = await stripeChargeOnce(Math.round(amount * 100), currency, paymentMethod, `arcus_${gid}`, {
+        cart_id: args.cart_id,
+        store: "arcuswear",
+      });
+      if (!charge.ok) return { error: charge.error, payment_status: charge.status || "failed", payment_intent_id: charge.payment_intent_id };
+
+      // 2) Record the PAID order in Shopify via the Admin API.
+      const lineItems = (cart.lines.edges || []).map((e) => ({
+        variant_id: Number(e.node.merchandise.id.split("/").pop()),
+        quantity: e.node.quantity,
+      }));
+      const made = await adminCreateOrder({
+        lineItems,
+        email: args.customer_email,
+        shippingAddress: args.shipping_address,
+        amount,
+        currency,
+        piId: charge.payment_intent_id,
+      });
+      if (!made.ok) {
+        // Charged but order creation failed — surface loudly for reconcile/refund.
+        return {
+          error: `Payment succeeded (Stripe ${charge.payment_intent_id}) but order creation failed: ${made.error}. Reconcile or refund the charge.`,
+          paid: true,
+          order_created: false,
+          payment_intent_id: charge.payment_intent_id,
+        };
+      }
+      const o = made.order;
+      return {
+        ok: true,
+        status: "paid",
+        order_id: o.id,
+        order_number: o.name || `#${o.order_number}`,
+        total: amount,
+        currency,
+        payment_intent_id: charge.payment_intent_id,
+        email: o.email || args.customer_email || null,
+        message:
+          "Order placed and paid — no redirect. Arcus Wear (merchant of record) charged its own Stripe; the buyer's card was tokenized by Stripe and never handled by the agent or Roam.",
       };
     }
 
